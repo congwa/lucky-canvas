@@ -261,6 +261,7 @@ export default class LuckyGrid extends Lucky {
     config.afterInit?.call(this)
   }
 
+
   /**
    * 单独加载某一张图片并计算其实际渲染宽高
    * @param { number } prizeIndex 奖品索引

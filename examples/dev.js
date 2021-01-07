@@ -464,103 +464,6 @@
     var getAngle = function (deg) {
         return Math.PI / 180 * deg;
     };
-    /**
-     * 根据角度计算圆上的点
-     * @param { number } deg 运算角度
-     * @param { number } r 半径
-     * @return { Array<number> } 坐标[x, y]
-     */
-    var getArcPointerByDeg = function (deg, r) {
-        return [+(Math.cos(deg) * r).toFixed(8), +(Math.sin(deg) * r).toFixed(8)];
-    };
-    /**
-     * 根据点计算切线方程
-     * @param { number } x 横坐标
-     * @param { number } y 纵坐标
-     * @return { Array<number> } [斜率, 常数]
-     */
-    var getTangentByPointer = function (x, y) {
-        var k = -x / y;
-        var b = -k * x + y;
-        return [k, b];
-    };
-    // 根据三点画圆弧
-    var drawRadian = function (flag, ctx, r, start, end, direction) {
-        var _a;
-        if (direction === void 0) { direction = true; }
-        if (Math.abs(end - start).toFixed(8) >= getAngle(180).toFixed(8)) {
-            var middle = (end + start) / 2;
-            if (direction) {
-                drawRadian(flag, ctx, r, start, middle, direction);
-                drawRadian(flag, ctx, r, middle, end, direction);
-            }
-            else {
-                drawRadian(flag, ctx, r, middle, end, direction);
-                drawRadian(flag, ctx, r, start, middle, direction);
-            }
-            return false;
-        }
-        if (!direction)
-            _a = [end, start], start = _a[0], end = _a[1];
-        var _b = getArcPointerByDeg(start, r), x1 = _b[0], y1 = _b[1];
-        var _c = getArcPointerByDeg(end, r), x2 = _c[0], y2 = _c[1];
-        var _d = getTangentByPointer(x1, y1), k1 = _d[0], b1 = _d[1];
-        var _e = getTangentByPointer(x2, y2), k2 = _e[0], b2 = _e[1];
-        var x0 = (b2 - b1) / (k1 - k2);
-        var y0 = (k2 * b1 - k1 * b2) / (k2 - k1);
-        if (isNaN(x0)) {
-            Math.abs(x1) === +r.toFixed(8) && (x0 = x1);
-            Math.abs(x2) === +r.toFixed(8) && (x0 = x2);
-        }
-        if (k1 === Infinity || k1 === -Infinity) {
-            y0 = k2 * x0 + b2;
-        }
-        else if (k2 === Infinity || k2 === -Infinity) {
-            y0 = k1 * x0 + b1;
-        }
-        ctx.lineTo(x1, y1);
-        if (['WEB', 'UNI-H5'].includes(flag)) {
-            ctx.arcTo(x0, y0, x2, y2, r);
-        }
-        else {
-            ctx.quadraticCurveTo(x0, y0, x2, y2);
-        }
-    };
-    // 绘制扇形
-    var drawSector = function (flag, ctx, minRadius, maxRadius, start, end, gutter, background) {
-        if (!gutter) {
-            ctx.beginPath();
-            ctx.fillStyle = background;
-            ctx.moveTo(0, 0);
-            ctx.arc(0, 0, maxRadius, start, end, false);
-            ctx.closePath();
-            ctx.fill();
-        }
-        else
-            drawSectorByArcTo(flag, ctx, minRadius, maxRadius, start, end, gutter, background);
-    };
-    // 根据arcTo绘制扇形
-    var drawSectorByArcTo = function (flag, ctx, minRadius, maxRadius, start, end, gutter, background) {
-        if (!minRadius)
-            minRadius = gutter;
-        var maxGutter = getAngle(90 / Math.PI / maxRadius * gutter);
-        var minGutter = getAngle(90 / Math.PI / minRadius * gutter);
-        var maxStart = start + maxGutter;
-        var maxEnd = end - maxGutter;
-        var minStart = start + minGutter;
-        var minEnd = end - minGutter;
-        ctx.beginPath();
-        ctx.fillStyle = background;
-        ctx.moveTo.apply(ctx, getArcPointerByDeg(maxStart, maxRadius));
-        drawRadian(flag, ctx, maxRadius, maxStart, maxEnd, true);
-        // 如果 getter 比按钮短就绘制圆弧, 反之计算新的坐标点
-        if (minEnd > minStart)
-            drawRadian(flag, ctx, minRadius, minStart, minEnd, false);
-        else
-            ctx.lineTo.apply(ctx, getArcPointerByDeg((start + end) / 2, gutter / 2 / Math.abs(Math.sin((start - end) / 2))));
-        ctx.closePath();
-        ctx.fill();
-    };
     // 绘制圆角矩形
     var drawRoundRect = function (ctx, x, y, w, h, r, color) {
         var min = Math.min(w, h);
@@ -697,12 +600,17 @@
             _this.prizeDeg = 0; // 奖品数学角度
             _this.prizeRadian = 0; // 奖品运算角度
             _this.rotateDeg = 0; // 转盘旋转角度
+            _this.rotateBlockDeg = 0; // 外圈转盘旋转角度
             _this.maxBtnRadius = 0; // 最大按钮半径
             _this.startTime = 0; // 开始时间戳
             _this.endTime = 0; // 停止时间戳
             _this.stopDeg = 0; // 刻舟求剑
+            _this.stopBlockDeg = 0; // 外圈
             _this.endDeg = 0; // 停止角度
+            _this.endBlockDeg = 0; // 外圈停止角度
             _this.animationId = 0; // 帧动画id
+            _this.slowDownBool = false;
+            _this.slowDownBlockBool = false;
             _this.FPS = 16.6; // 屏幕刷新率
             _this.prizeImgs = [[]];
             _this.btnImgs = [[]];
@@ -826,52 +734,100 @@
          * @param { Array<ImgType[]> } willUpdateImgs 需要更新的图片
          */
         LuckyWheel.prototype.init = function (willUpdateImgs) {
-            var _this = this;
             var _a, _b;
-            var _c = this, config = _c.config, ctx = _c.ctx;
-            this.setDpr();
-            this.setHTMLFontSize();
-            this.zoomCanvas();
-            // 初始化前回调函数
-            (_a = config.beforeInit) === null || _a === void 0 ? void 0 : _a.call(this);
-            this.Radius = Math.min(config.width, config.height) / 2;
-            ctx.translate(this.Radius, this.Radius);
-            var endCallBack = function () {
-                _this.draw();
-                // 防止多次绑定点击事件
-                if (config.canvasElement)
-                    config.canvasElement.onclick = function (e) {
-                        var _a;
-                        ctx.beginPath();
-                        ctx.arc(0, 0, _this.maxBtnRadius, 0, Math.PI * 2, false);
-                        if (!ctx.isPointInPath(e.offsetX, e.offsetY))
-                            return;
-                        if (_this.startTime)
-                            return;
-                        (_a = _this.startCallback) === null || _a === void 0 ? void 0 : _a.call(_this, e);
-                    };
-            };
-            // 同步加载图片
-            var num = 0, sum = 0;
-            if (isExpectType(willUpdateImgs, 'array')) {
-                this.draw(); // 先画一次防止闪烁, 因为加载图片是异步的
-                willUpdateImgs.forEach(function (imgs, cellIndex) {
-                    if (!imgs)
-                        return false;
-                    imgs.forEach(function (imgInfo, imgIndex) {
-                        sum++;
-                        _this.loadAndCacheImg(cellIndex, imgIndex, function () {
-                            num++;
-                            if (sum === num)
-                                endCallBack.call(_this);
-                        });
-                    });
+            return __awaiter(this, void 0, void 0, function () {
+                var _c, config, ctx, endCallBack, num, sum;
+                var _this = this;
+                return __generator(this, function (_d) {
+                    switch (_d.label) {
+                        case 0:
+                            _c = this, config = _c.config, ctx = _c.ctx;
+                            this.setDpr();
+                            this.setHTMLFontSize();
+                            this.zoomCanvas();
+                            // 初始化前回调函数
+                            (_a = config.beforeInit) === null || _a === void 0 ? void 0 : _a.call(this);
+                            this.Radius = Math.min(config.width, config.height) / 2;
+                            ctx.translate(this.Radius, this.Radius);
+                            endCallBack = function () {
+                                _this.draw();
+                                // 防止多次绑定点击事件
+                                if (config.canvasElement)
+                                    config.canvasElement.onclick = function (e) {
+                                        var _a;
+                                        ctx.beginPath();
+                                        ctx.arc(0, 0, _this.maxBtnRadius, 0, Math.PI * 2, false);
+                                        if (!ctx.isPointInPath(e.offsetX, e.offsetY))
+                                            return;
+                                        if (_this.startTime)
+                                            return;
+                                        (_a = _this.startCallback) === null || _a === void 0 ? void 0 : _a.call(_this, e);
+                                    };
+                            };
+                            if (!this.blocks[0].img) return [3 /*break*/, 2];
+                            return [4 /*yield*/, this.loadBlockImg()];
+                        case 1:
+                            _d.sent();
+                            _d.label = 2;
+                        case 2:
+                            if (!this.blocks[0].imgBackground) return [3 /*break*/, 4];
+                            return [4 /*yield*/, this.loadBlockImgBackground()];
+                        case 3:
+                            _d.sent();
+                            _d.label = 4;
+                        case 4:
+                            num = 0, sum = 0;
+                            if (isExpectType(willUpdateImgs, 'array')) {
+                                this.draw(); // 先画一次防止闪烁, 因为加载图片是异步的
+                                willUpdateImgs.forEach(function (imgs, cellIndex) {
+                                    if (!imgs)
+                                        return false;
+                                    imgs.forEach(function (imgInfo, imgIndex) {
+                                        sum++;
+                                        _this.loadAndCacheImg(cellIndex, imgIndex, function () {
+                                            num++;
+                                            if (sum === num)
+                                                endCallBack.call(_this);
+                                        });
+                                    });
+                                });
+                            }
+                            if (!sum)
+                                endCallBack.call(this);
+                            // 初始化后回调函数
+                            (_b = config.afterInit) === null || _b === void 0 ? void 0 : _b.call(this);
+                            return [2 /*return*/];
+                    }
                 });
-            }
-            if (!sum)
-                endCallBack.call(this);
-            // 初始化后回调函数
-            (_b = config.afterInit) === null || _b === void 0 ? void 0 : _b.call(this);
+            });
+        };
+        LuckyWheel.prototype.loadBlockImg = function () {
+            return __awaiter(this, void 0, void 0, function () {
+                var s;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0: return [4 /*yield*/, this.loadImg(this.blocks[0].img.src, this.blocks[0].img)];
+                        case 1:
+                            s = _a.sent();
+                            this.blokImg = s;
+                            return [2 /*return*/];
+                    }
+                });
+            });
+        };
+        LuckyWheel.prototype.loadBlockImgBackground = function () {
+            return __awaiter(this, void 0, void 0, function () {
+                var s;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0: return [4 /*yield*/, this.loadImg(this.blocks[0].imgBackground.src, this.blocks[0].imgBackground)];
+                        case 1:
+                            s = _a.sent();
+                            this.centerBackground = s;
+                            return [2 /*return*/];
+                    }
+                });
+            });
         };
         /**
          * 单独加载某一张图片并计算其实际渲染宽高
@@ -898,6 +854,7 @@
                             // 同步加载图片
                             if (!this[imgName][cellIndex])
                                 this[imgName][cellIndex] = [];
+                            console.log(imgName, cellIndex, imgIndex, this[imgName]);
                             _a = this[imgName][cellIndex];
                             _b = imgIndex;
                             return [4 /*yield*/, this.loadImg(imgInfo.src, imgInfo)];
@@ -947,23 +904,6 @@
         LuckyWheel.prototype.draw = function () {
             var _this = this;
             var _a, _b;
-            var _c = this, config = _c.config, ctx = _c.ctx, _defaultConfig = _c._defaultConfig, _defaultStyle = _c._defaultStyle;
-            // 触发绘制前回调
-            (_a = config.beforeDraw) === null || _a === void 0 ? void 0 : _a.call(this, ctx);
-            // 清空画布
-            ctx.clearRect(-this.Radius, -this.Radius, this.Radius * 2, this.Radius * 2);
-            // 绘制blocks边框
-            this.prizeRadius = this.blocks.reduce(function (radius, block) {
-                ctx.beginPath();
-                ctx.fillStyle = block.background;
-                ctx.arc(0, 0, radius, 0, Math.PI * 2, false);
-                ctx.fill();
-                return radius - _this.getLength(block.padding.split(' ')[0]);
-            }, this.Radius);
-            // 计算起始弧度
-            this.prizeDeg = 360 / this.prizes.length;
-            this.prizeRadian = getAngle(this.prizeDeg);
-            var start = getAngle(-90 + this.rotateDeg + _defaultConfig.offsetDegree);
             // 计算文字横坐标
             var getFontX = function (line) {
                 return _this.getOffsetX(ctx.measureText(line).width);
@@ -974,7 +914,54 @@
                 var lineHeight = font.lineHeight || _defaultStyle.lineHeight || font.fontSize || _defaultStyle.fontSize;
                 return _this.getHeight(font.top, height) + (lineIndex + 1) * _this.getLength(lineHeight);
             };
+            this.prizeDeg = 360 / this.prizes.length;
+            this.prizeRadian = getAngle(this.prizeDeg);
+            var _c = this, config = _c.config, ctx = _c.ctx, _defaultConfig = _c._defaultConfig, _defaultStyle = _c._defaultStyle;
+            // 触发绘制前回调
+            (_a = config.beforeDraw) === null || _a === void 0 ? void 0 : _a.call(this, ctx);
+            // 清空画布
+            ctx.clearRect(-this.Radius, -this.Radius, this.Radius * 2, this.Radius * 2);
+            console.log('------', this.blokImg, 0, 0, this.Radius * 2, this.Radius * 2);
+            ctx.restore();
+            var startBlock = getAngle(-90 + this.rotateBlockDeg + _defaultConfig.offsetDegree);
+            var rBlockRadius = this.Radius - 16;
+            // 绘制blocks边框
+            this.prizeRadius = this.blocks.reduce(function (radius, block, index) {
+                // ctx.beginPath()
+                // ctx.fillStyle = block.background
+                // ctx.arc(0, 0, radius, 0, Math.PI * 2, false)
+                // ctx.fill()
+                console.log('++++++++++++', block.img, block.img, _this.getHeight(_this.Radius) * 2, _this.getHeight(_this.Radius) * 2);
+                ctx.save();
+                var _a = _this.computedWidthAndHeight(block.img, block.img, _this.getHeight(_this.Radius) * 2, _this.getHeight(_this.Radius) * 2), trueWidth = _a[0], trueHeight = _a[1];
+                var _b = [_this.getOffsetX(trueWidth), _this.getHeight(block.img.top, _this.Radius)], imgX = _b[0], imgY = _b[1];
+                console.log('==================', imgX, imgY, trueWidth, trueHeight);
+                // ctx.rotate(this.rotateBlockDeg);
+                ctx.drawImage(_this.blokImg, imgX, imgY + imgX, trueWidth, trueHeight);
+                if (block.text) {
+                    // ctx.fill();
+                    block.text.forEach(function (text, index) {
+                        var currMiddleDeg = startBlock + index * _this.prizeRadian;
+                        ctx.fillStyle = '#fff';
+                        var x = Math.cos(currMiddleDeg) * rBlockRadius;
+                        var y = Math.sin(currMiddleDeg) * rBlockRadius;
+                        ctx.fillText(text, x - 10, y + 4);
+                        console.log('x', x, 'y', y, '--', text);
+                    });
+                }
+                // 绘制文字
+                return radius - _this.getLength(block.padding.split(' ')[0]);
+            }, this.Radius);
+            var _d = this.computedWidthAndHeight(this.blocks[0].imgBackground, this.blocks[0].imgBackground, this.getHeight(this.prizeRadius) * 2, this.getHeight(this.prizeRadius) * 2), trueWidth = _d[0], trueHeight = _d[1];
+            console.log(trueWidth, trueHeight);
+            // 计算起始弧度
+            // ctx.fillText('原点', 0 , 0);
+            var start = getAngle(-90 + this.rotateDeg + _defaultConfig.offsetDegree);
             ctx.save();
+            var _e = [this.getOffsetX(trueWidth), this.getHeight(0, this.prizeRadius)], imgX = _e[0], imgY = _e[1];
+            console.log(imgX, imgY);
+            console.log('----------------iiiiiiiii-----', this.centerBackground), trueHeight;
+            ctx.drawImage(this.centerBackground, imgX, imgX, trueWidth, trueHeight);
             // 绘制prizes奖品区域
             this.prizes.forEach(function (prize, prizeIndex) {
                 // 计算当前奖品区域中间坐标点
@@ -982,7 +969,14 @@
                 // 奖品区域可见高度
                 var prizeHeight = _this.prizeRadius - _this.maxBtnRadius;
                 // 绘制背景
-                drawSector(config.flag, ctx, _this.maxBtnRadius, _this.prizeRadius, currMiddleDeg - _this.prizeRadian / 2, currMiddleDeg + _this.prizeRadian / 2, _this.getLength(_defaultConfig.gutter), prize.background || _defaultStyle.background);
+                // drawSector(
+                //   config.flag, ctx,
+                //   this.maxBtnRadius, this.prizeRadius,
+                //   currMiddleDeg - this.prizeRadian / 2,
+                //   currMiddleDeg + this.prizeRadian / 2,
+                //   this.getLength(_defaultConfig.gutter),
+                //   prize.background || _defaultStyle.background
+                // )
                 // 计算临时坐标并旋转文字
                 var x = Math.cos(currMiddleDeg) * _this.prizeRadius;
                 var y = Math.sin(currMiddleDeg) * _this.prizeRadius;
@@ -999,6 +993,7 @@
                     var _b = [_this.getOffsetX(trueWidth), _this.getHeight(imgInfo.top, prizeHeight)], imgX = _b[0], imgY = _b[1];
                     var drawImg;
                     // 兼容代码
+                    console.log(prizeImg);
                     if (['WEB', 'MINI-WX'].includes(_this.config.flag)) {
                         drawImg = prizeImg;
                     }
@@ -1112,14 +1107,20 @@
                 return;
             this.startTime = Date.now();
             this.prizeFlag = undefined;
+            this.blockFlag = undefined;
+            this.slowDownBlockBool = false;
+            this.slowDownBool = false;
             this.run();
         };
         /**
          * 对外暴露: 缓慢停止方法
          * @param index 中奖索引
          */
-        LuckyWheel.prototype.stop = function (index) {
+        LuckyWheel.prototype.stop = function (index, index2) {
             this.prizeFlag = Number(index) % this.prizes.length;
+            if (typeof index2 === 'number') {
+                this.blockFlag = Number(index2) % this.blocks[0].text.length;
+            }
         };
         /**
          * 实际开始执行方法
@@ -1127,47 +1128,85 @@
          */
         LuckyWheel.prototype.run = function (num) {
             if (num === void 0) { num = 0; }
-            var _a = this, rAF = _a.rAF, prizeFlag = _a.prizeFlag, prizeDeg = _a.prizeDeg, rotateDeg = _a.rotateDeg, _defaultConfig = _a._defaultConfig;
+            var _a = this, rAF = _a.rAF, prizeFlag = _a.prizeFlag, blockFlag = _a.blockFlag, prizeDeg = _a.prizeDeg, rotateDeg = _a.rotateDeg, _defaultConfig = _a._defaultConfig;
             var interval = Date.now() - this.startTime;
-            // 先完全旋转, 再停止
-            if (interval >= _defaultConfig.accelerationTime && prizeFlag !== undefined) {
+            // 中心，先完全旋转, 再停止 
+            if (interval >= _defaultConfig.accelerationTime) {
                 // 记录帧率
                 this.FPS = interval / num;
                 // 记录开始停止的时间戳
                 this.endTime = Date.now();
-                // 记录开始停止的位置
-                this.stopDeg = rotateDeg;
-                // 测算最终停止的角度
-                var i = 0;
-                while (++i) {
-                    var endDeg = 360 * i - prizeFlag * prizeDeg - rotateDeg - _defaultConfig.offsetDegree;
-                    var currSpeed = quad.easeOut(this.FPS, this.stopDeg, endDeg, _defaultConfig.decelerationTime) - this.stopDeg;
-                    if (currSpeed > _defaultConfig.speed) {
-                        this.endDeg = endDeg;
-                        break;
+                if (prizeFlag !== undefined && !this.slowDownBool) {
+                    console.log('111');
+                    // 记录开始停止的位置
+                    this.stopDeg = rotateDeg;
+                    var i = 0;
+                    // 测算最终停止的角度
+                    while (++i) {
+                        var endDeg = 360 * i - prizeFlag * prizeDeg - rotateDeg - _defaultConfig.offsetDegree;
+                        var currSpeed = quad.easeOut(this.FPS, this.stopDeg, endDeg, _defaultConfig.decelerationTime) - this.stopDeg;
+                        if (currSpeed > _defaultConfig.speed) {
+                            this.endDeg = endDeg + 135;
+                            break;
+                        }
                     }
+                    this.slowDown();
                 }
-                return this.slowDown();
+                if (blockFlag !== undefined && !this.slowDownBlockBool) {
+                    this.stopBlockDeg = this.rotateBlockDeg;
+                    var j = 0;
+                    while (++j) {
+                        var endDeg = 360 * j - blockFlag * prizeDeg - rotateDeg - _defaultConfig.offsetDegree;
+                        var currSpeed = quad.easeOut(this.FPS, this.stopBlockDeg, endDeg, _defaultConfig.decelerationTime) - this.stopBlockDeg;
+                        if (currSpeed > _defaultConfig.speed) {
+                            this.endBlockDeg = endDeg + 140;
+                            break;
+                        }
+                    }
+                    this.slowDownblock();
+                }
             }
             this.rotateDeg = (rotateDeg + quad.easeIn(interval, 0, _defaultConfig.speed, _defaultConfig.accelerationTime)) % 360;
+            this.rotateBlockDeg = (this.rotateBlockDeg + quad.easeIn(interval, 0, _defaultConfig.speed, _defaultConfig.accelerationTime)) % 360;
             this.draw();
-            rAF(this.run.bind(this, num + 1));
+            if (!this.slowDownBool || !this.slowDownBlockBool) {
+                rAF(this.run.bind(this, num + 1));
+            }
         };
         /**
-         * 缓慢停止的方法
+         * 缓慢停止的方法 中心区域
          */
         LuckyWheel.prototype.slowDown = function () {
             var _a;
+            this.slowDownBool = true;
             var _b = this, rAF = _b.rAF, prizes = _b.prizes, prizeFlag = _b.prizeFlag, stopDeg = _b.stopDeg, endDeg = _b.endDeg, _defaultConfig = _b._defaultConfig;
             var interval = Date.now() - this.endTime;
             if (interval >= _defaultConfig.decelerationTime) {
                 this.startTime = 0;
+                console.log(prizes);
                 (_a = this.endCallback) === null || _a === void 0 ? void 0 : _a.call(this, __assign({}, prizes.find(function (prize, index) { return index === prizeFlag; })));
                 return;
             }
             this.rotateDeg = quad.easeOut(interval, stopDeg, endDeg, _defaultConfig.decelerationTime) % 360;
             this.draw();
             rAF(this.slowDown.bind(this));
+        };
+        /**
+         * 缓慢停止的方法 边框区域
+         */
+        LuckyWheel.prototype.slowDownblock = function () {
+            var _a;
+            this.slowDownBlockBool = true;
+            var _b = this, rAF = _b.rAF, prizes = _b.prizes, blockFlag = _b.blockFlag, stopDeg = _b.stopDeg, endBlockDeg = _b.endBlockDeg, _defaultConfig = _b._defaultConfig, blocks = _b.blocks;
+            var interval = Date.now() - this.endTime;
+            if (interval >= _defaultConfig.decelerationTime) {
+                this.startTime = 0;
+                (_a = this.endCallback) === null || _a === void 0 ? void 0 : _a.call(this, { block: blocks[0].text.find(function (text, index) { return index === blockFlag; }) });
+                return;
+            }
+            this.rotateBlockDeg = quad.easeOut(interval + 1000, stopDeg, endBlockDeg, _defaultConfig.decelerationTime) % 360;
+            this.draw();
+            rAF(this.slowDownblock.bind(this));
         };
         /**
          * 获取相对宽度

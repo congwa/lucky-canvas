@@ -62,16 +62,25 @@ export default class LuckyWheel extends Lucky {
   private prizeDeg = 0                  // 奖品数学角度
   private prizeRadian = 0               // 奖品运算角度
   private rotateDeg = 0                 // 转盘旋转角度
+  private rotateBlockDeg = 0;           // 外圈转盘旋转角度
   private maxBtnRadius = 0              // 最大按钮半径
   private startTime = 0                 // 开始时间戳
   private endTime = 0                   // 停止时间戳
   private stopDeg = 0                   // 刻舟求剑
+  private stopBlockDeg = 0              // 外圈
   private endDeg = 0                    // 停止角度
+  private endBlockDeg = 0               // 外圈停止角度
   private prizeFlag: number | undefined // 中奖索引
+  private blockFlag: number | undefined // 中奖索引
   private animationId = 0               // 帧动画id
+  private slowDownBool = false;
+  private slowDownBlockBool = false;
   private FPS = 16.6                    // 屏幕刷新率
   private prizeImgs: Array<HTMLImageElement[] | UniImageType[]> = [[]]
   private btnImgs: Array<HTMLImageElement[] | UniImageType[]> = [[]]
+
+  private blokImg: any
+  private centerBackground: any
 
   /**
    * 初始化数据
@@ -185,7 +194,7 @@ export default class LuckyWheel extends Lucky {
    * 初始化 canvas 抽奖
    * @param { Array<ImgType[]> } willUpdateImgs 需要更新的图片
    */
-  public init (willUpdateImgs: Array<ImgType[] | undefined>): void {
+  public async init (willUpdateImgs: Array<ImgType[] | undefined>): void {
     const { config, ctx } = this
     this.setDpr()
     this.setHTMLFontSize()
@@ -205,6 +214,14 @@ export default class LuckyWheel extends Lucky {
         this.startCallback?.(e)
       }
     }
+    if(this.blocks[0].img) {
+      await this.loadBlockImg();
+    }
+
+    if(this.blocks[0].imgBackground) {
+      await this.loadBlockImgBackground()
+    }
+    
     // 同步加载图片
     let num = 0, sum = 0
     if (isExpectType(willUpdateImgs, 'array')) {
@@ -220,9 +237,20 @@ export default class LuckyWheel extends Lucky {
         })
       })
     }
+   
     if (!sum) endCallBack.call(this)
     // 初始化后回调函数
     config.afterInit?.call(this)
+  }
+
+  private async loadBlockImg() {
+    let s =  await this.loadImg(this.blocks[0].img.src, this.blocks[0].img);
+    this.blokImg = s;
+  }
+
+  private async loadBlockImgBackground() {
+    const s =  await this.loadImg(this.blocks[0].imgBackground.src, this.blocks[0].imgBackground);
+    this.centerBackground = s;
   }
 
   /**
@@ -248,6 +276,7 @@ export default class LuckyWheel extends Lucky {
     if (!imgInfo) return
     // 同步加载图片
     if (!this[imgName][cellIndex]) this[imgName][cellIndex] = []
+    console.log(imgName, cellIndex, imgIndex, this[imgName]);
     this[imgName][cellIndex][imgIndex] = await this.loadImg(imgInfo.src, imgInfo)
     callBack.call(this)
   }
@@ -292,34 +321,88 @@ export default class LuckyWheel extends Lucky {
    * 开始绘制
    */
   protected draw (): void {
-    const { config, ctx, _defaultConfig, _defaultStyle } = this
-    // 触发绘制前回调
-    config.beforeDraw?.call(this, ctx)
-    // 清空画布
-    ctx.clearRect(-this.Radius, -this.Radius, this.Radius * 2, this.Radius * 2)
-    // 绘制blocks边框
-    this.prizeRadius = this.blocks.reduce((radius, block) => {
-      ctx.beginPath()
-      ctx.fillStyle = block.background
-      ctx.arc(0, 0, radius, 0, Math.PI * 2, false)
-      ctx.fill()
-      return radius - this.getLength(block.padding.split(' ')[0])
-    }, this.Radius)
-    // 计算起始弧度
-    this.prizeDeg = 360 / this.prizes.length
-    this.prizeRadian = getAngle(this.prizeDeg)
-    let start = getAngle(-90 + this.rotateDeg + _defaultConfig.offsetDegree)
+
     // 计算文字横坐标
     const getFontX = (line: string) => {
       return this.getOffsetX(ctx.measureText(line).width)
     }
     // 计算文字纵坐标
-    const getFontY = (font: FontType, height: number, lineIndex: number) => {
+    const getFontY = (font: FontType | any, height: number, lineIndex: number) => {
       // 优先使用字体行高, 要么使用默认行高, 其次使用字体大小, 否则使用默认字体大小
       const lineHeight = font.lineHeight || _defaultStyle.lineHeight || font.fontSize || _defaultStyle.fontSize
       return this.getHeight(font.top, height) + (lineIndex + 1) * this.getLength(lineHeight)
     }
+
+    this.prizeDeg = 360 / this.prizes.length
+    this.prizeRadian = getAngle(this.prizeDeg)
+
+    const { config, ctx, _defaultConfig, _defaultStyle } = this
+    // 触发绘制前回调
+    config.beforeDraw?.call(this, ctx)
+    // 清空画布
+    ctx.clearRect(-this.Radius, -this.Radius, this.Radius * 2, this.Radius * 2)
+
+    console.log('------', this.blokImg, 0,0, this.Radius * 2, this.Radius * 2);
+    ctx.restore()
+    
+
+    let startBlock = getAngle(-90 + this.rotateBlockDeg + _defaultConfig.offsetDegree)
+    let rBlockRadius = this.Radius - 16;
+    // 绘制blocks边框
+    this.prizeRadius = this.blocks.reduce((radius, block, index) => {
+      // ctx.beginPath()
+      // ctx.fillStyle = block.background
+      // ctx.arc(0, 0, radius, 0, Math.PI * 2, false)
+      // ctx.fill()
+      console.log('++++++++++++', block.img,   block.img, this.getHeight(this.Radius) * 2, this.getHeight(this.Radius) * 2);
+      ctx.save();
+      const [trueWidth, trueHeight] = this.computedWidthAndHeight(
+        block.img,   block.img, this.getHeight(this.Radius) * 2, this.getHeight(this.Radius) * 2
+      )
+      const [imgX, imgY] = [this.getOffsetX(trueWidth), this.getHeight(  block.img.top, this.Radius)]
+      console.log('==================',imgX , imgY,trueWidth, trueHeight);
+      // ctx.rotate(this.rotateBlockDeg);
+      ctx.drawImage((this.blokImg as CanvasImageSource), imgX , imgY+ imgX,trueWidth, trueHeight )
+      
+      // ctx.save();
+      // ctx.restore();//恢复状态
+      // ctx.rotate(0);
+      // ctx.restore();//恢复状态
+
+
+      let font = {top: 0};
+      if(block.text) {
+        // ctx.fill();
+        block.text.forEach((text, index) => {
+          let currMiddleDeg = startBlock + index * this.prizeRadian
+          ctx.fillStyle = '#fff';
+          let x = Math.cos(currMiddleDeg) * rBlockRadius
+          let y = Math.sin(currMiddleDeg) * rBlockRadius
+          ctx.fillText(text, x -10, y + 4)
+          console.log('x',x, 'y', y, '--', text);
+        })
+      }
+      // 绘制文字
+      return radius - this.getLength(block.padding.split(' ')[0])
+    }, this.Radius)
+
+    const [trueWidth, trueHeight] = this.computedWidthAndHeight(
+      this.blocks[0].imgBackground,   this.blocks[0].imgBackground, this.getHeight(this.prizeRadius) * 2, this.getHeight(this.prizeRadius) * 2
+    )
+    console.log(trueWidth, trueHeight);
+    
+    // 计算起始弧度
+    // ctx.fillText('原点', 0 , 0);
+
+    let start = getAngle(-90 + this.rotateDeg + _defaultConfig.offsetDegree)
+   
+    
     ctx.save()
+    const [imgX, imgY] = [this.getOffsetX(trueWidth), this.getHeight(  0, this.prizeRadius)]
+    console.log(imgX, imgY);
+    console.log('----------------iiiiiiiii-----',this.centerBackground as CanvasImageSource), imgX , imgY-imgX,trueWidth, trueHeight);
+    ctx.drawImage((this.centerBackground as CanvasImageSource), imgX , imgX,trueWidth, trueHeight )
+    
     // 绘制prizes奖品区域
     this.prizes.forEach((prize, prizeIndex) => {
       // 计算当前奖品区域中间坐标点
@@ -327,14 +410,15 @@ export default class LuckyWheel extends Lucky {
       // 奖品区域可见高度
       let prizeHeight = this.prizeRadius - this.maxBtnRadius
       // 绘制背景
-      drawSector(
-        config.flag, ctx,
-        this.maxBtnRadius, this.prizeRadius,
-        currMiddleDeg - this.prizeRadian / 2,
-        currMiddleDeg + this.prizeRadian / 2,
-        this.getLength(_defaultConfig.gutter),
-        prize.background || _defaultStyle.background
-      )
+      // drawSector(
+      //   config.flag, ctx,
+      //   this.maxBtnRadius, this.prizeRadius,
+      //   currMiddleDeg - this.prizeRadian / 2,
+      //   currMiddleDeg + this.prizeRadian / 2,
+      //   this.getLength(_defaultConfig.gutter),
+      //   prize.background || _defaultStyle.background
+      // )
+     
       // 计算临时坐标并旋转文字
       let x = Math.cos(currMiddleDeg) * this.prizeRadius
       let y = Math.sin(currMiddleDeg) * this.prizeRadius
@@ -351,6 +435,7 @@ export default class LuckyWheel extends Lucky {
         const [imgX, imgY] = [this.getOffsetX(trueWidth), this.getHeight(imgInfo.top, prizeHeight)]
         let drawImg
         // 兼容代码
+        console.log(prizeImg);
         if (['WEB', 'MINI-WX'].includes(this.config.flag)) {
           drawImg = prizeImg
         } else if (['UNI-H5', 'UNI-MINI-WX'].includes(this.config.flag)) {
@@ -459,6 +544,9 @@ export default class LuckyWheel extends Lucky {
     if (this.startTime) return
     this.startTime = Date.now()
     this.prizeFlag = undefined
+    this.blockFlag = undefined
+    this.slowDownBlockBool = false;
+    this.slowDownBool = false;
     this.run()
   }
 
@@ -466,8 +554,11 @@ export default class LuckyWheel extends Lucky {
    * 对外暴露: 缓慢停止方法
    * @param index 中奖索引
    */
-  public stop (index: string | number): void {
+  public stop (index: string | number, index2: string | number): void {
     this.prizeFlag = Number(index) % this.prizes.length
+    if(typeof index2 === 'number') {
+      this.blockFlag = Number(index2) % this.blocks[0].text.length
+    }
   }
 
   /**
@@ -475,47 +566,88 @@ export default class LuckyWheel extends Lucky {
    * @param num 记录帧动画执行多少次
    */
   private run (num: number = 0): void {
-    const { rAF, prizeFlag, prizeDeg, rotateDeg, _defaultConfig } = this
+    const { rAF, prizeFlag, blockFlag ,prizeDeg, rotateDeg, _defaultConfig } = this
     let interval = Date.now() - this.startTime
-    // 先完全旋转, 再停止
-    if (interval >= _defaultConfig.accelerationTime && prizeFlag !== undefined) {
+    // 中心，先完全旋转, 再停止 
+    if (interval >= _defaultConfig.accelerationTime) {
       // 记录帧率
       this.FPS = interval / num
       // 记录开始停止的时间戳
       this.endTime = Date.now()
-      // 记录开始停止的位置
-      this.stopDeg = rotateDeg
-      // 测算最终停止的角度
-      let i = 0
-      while (++i) {
-        const endDeg = 360 * i - prizeFlag * prizeDeg - rotateDeg - _defaultConfig.offsetDegree
-        let currSpeed = quad.easeOut(this.FPS, this.stopDeg, endDeg, _defaultConfig.decelerationTime) - this.stopDeg
-        if (currSpeed > _defaultConfig.speed) {
-          this.endDeg = endDeg
-          break
+      
+      
+      if(prizeFlag !== undefined && !this.slowDownBool) {
+        console.log('111');
+        // 记录开始停止的位置
+        this.stopDeg = rotateDeg
+
+        let i = 0
+        // 测算最终停止的角度
+        while (++i) {
+          const endDeg = 360 * i - prizeFlag * prizeDeg - rotateDeg - _defaultConfig.offsetDegree
+          let currSpeed = quad.easeOut(this.FPS, this.stopDeg, endDeg, _defaultConfig.decelerationTime) - this.stopDeg
+          if (currSpeed > _defaultConfig.speed) {
+            this.endDeg = endDeg + 135;
+            break
+          }
         }
+        this.slowDown()
       }
-      return this.slowDown()
+      
+      if(blockFlag !== undefined && !this.slowDownBlockBool) {
+        this.stopBlockDeg = this.rotateBlockDeg;
+        let j = 0;
+        while (++j) {
+          const endDeg = 360 * j - blockFlag * prizeDeg - rotateDeg - _defaultConfig.offsetDegree
+          let currSpeed = quad.easeOut(this.FPS, this.stopBlockDeg, endDeg, _defaultConfig.decelerationTime) - this.stopBlockDeg
+          if (currSpeed > _defaultConfig.speed) {
+            this.endBlockDeg = endDeg + 140;
+            break
+          }
+        }
+        this.slowDownblock();
+      }
     }
     this.rotateDeg = (rotateDeg + quad.easeIn(interval, 0, _defaultConfig.speed, _defaultConfig.accelerationTime)) % 360
+    this.rotateBlockDeg = (this.rotateBlockDeg + quad.easeIn(interval, 0, _defaultConfig.speed, _defaultConfig.accelerationTime)) % 360
     this.draw()
-    rAF(this.run.bind(this, num + 1))
+    if(!this.slowDownBool || !this.slowDownBlockBool) {
+      rAF(this.run.bind(this, num + 1))
+    }
   }
-
+  
   /**
-   * 缓慢停止的方法
+   * 缓慢停止的方法 中心区域
    */
   private slowDown (): void {
+    this.slowDownBool = true;
     const { rAF, prizes, prizeFlag, stopDeg, endDeg, _defaultConfig } = this
     let interval = Date.now() - this.endTime
     if (interval >= _defaultConfig.decelerationTime) {
       this.startTime = 0
+      console.log(prizes);
       this.endCallback?.({...prizes.find((prize, index) => index === prizeFlag)})
       return
     }
     this.rotateDeg = quad.easeOut(interval, stopDeg, endDeg, _defaultConfig.decelerationTime) % 360
     this.draw()
     rAF(this.slowDown.bind(this))
+  }
+  /**
+   * 缓慢停止的方法 边框区域
+   */
+  private slowDownblock (): void {
+    this.slowDownBlockBool = true;
+    const { rAF, prizes, blockFlag, stopDeg, endBlockDeg, _defaultConfig, blocks } = this
+    let interval = Date.now() - this.endTime
+    if (interval >= _defaultConfig.decelerationTime) {
+      this.startTime = 0
+      this.endCallback?.({block: blocks[0].text.find((text,index) => index === blockFlag)})
+      return
+    }
+    this.rotateBlockDeg = quad.easeOut(interval + 1000, stopDeg, endBlockDeg, _defaultConfig.decelerationTime) % 360
+    this.draw()
+    rAF(this.slowDownblock.bind(this))
   }
 
   /**

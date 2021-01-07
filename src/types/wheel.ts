@@ -14,6 +14,9 @@ export interface ButtonImgType extends ImgType {}
 export interface BlockType {
   background: string
   padding: string
+  text: Array<string>
+  img: any
+  imgBackground: any
 }
 
 export interface PrizeType {
@@ -50,7 +53,7 @@ export interface DefaultStyleType {
 }
 
 export type StartCallbackType = (e: MouseEvent) => void
-export type EndCallbackType = (prize: object) => void
+export type EndCallbackType = (prize: object| any) => void
 
 export default interface LuckyWheelConfig {
   blocks?: Array<BlockType>
