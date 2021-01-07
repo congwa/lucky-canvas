@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<style>
+  .ponter {
+    position: absolute;
+    width: 156px;
+    height: 146.5px;
+    background-image: url('./img/zhizhen.png');
+    background-size: 100% 100%;
+    top: 155px;
+    left: 130px;
+  }
+</style>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <body>
+    <div id="my-lucky"></div>
+    <script src="./lucky-canvas.umd.js"></script>
+    <div class="ponter"></div>
+    <button onclick="onClick()">抽奖</button>
+    <script>
+      // 设置奖品
+      const prizes = []
+      let data = ['1元红包', '100元红包', '0.5元红包', '2元红包', '10元红包', '50元红包', '0.3元红包', '5元红包']
+      data.forEach((item, index) => {
+        prizes.push({
+          imgs:[{ src: `./img/${index}.png`, width: '30%', top: '22%' }],
+        })
+      })
+      // 创建大转盘抽奖
+      let luckyWheel = new LuckyCanvas.LuckyWheel({
+        el: '#my-lucky',
+        width: '338px',
+        height: '338px',
+      }, {
+        prizes: prizes,
+        defaultStyle: {
+          fontColor: '#d64737',
+          fontSize: '14px'
+        },
+        defaultConfig: {
+          gutter: 0
+        },
+        blocks: [
+          { padding: '30px', background: '#d64737',text: ['1', '100', '0.5', '2', '10', '50', '0.3', '5'], img:{src: './img/block.png',top: 0, width: '368px', height: '368px'},imgBackground: {src: './img/z1.png', top: 0, width: '318px', height: '318px'} }
+        ],
+        buttons: [
+          // { radius: '41px', background: '#f6c66f', pointer: true },
+          // {
+          //   radius: '35px', background: '#ffdea0',
+          //   imgs: [{ src: './img/button.png', width: '65%', top: '-50%' }]
+          // }
+        ],
+        start () {
+          luckyWheel.play()
+          setTimeout(() => {
+            luckyWheel.stop(1, 4)
+          }, 3000)
+        },
+        end (prize) {
+          alert(JSON.stringify(prize))
+        },
+      })
+
+      const onClick = () => {
+        luckyWheel.play()
+        setTimeout(() => {
+          luckyWheel.stop(1, 4)
+        }, 3000)
+      }
+    </script>
+  </body>
+</body>
+</html>
