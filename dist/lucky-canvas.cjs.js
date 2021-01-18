@@ -109,64 +109,6 @@ var isExpectType = function (param) {
 var removeEnter = function (str) {
     return [].filter.call(str, function (s) { return s !== '\n'; }).join('');
 };
-/**
- * 参数校验器
- * @param data 将要校验的参数
- * @param params 校验规则
- * @param msg 警告信息
- * @return { boolean } 校验成功返回true, 反之false
- */
-// export const paramsValidator = (data: any, params = {}, msg = '') => {
-//   if (isExpectType(data, 'object')) data = [data]
-//   return data.every((item, index) => {
-//     for (let key in params) {
-//       if (params[key] === 1 && !item.hasOwnProperty(key)) {
-//         return !!console.error(`参数 ${msg}[${index}] 缺少 ${key} 属性`)
-//       }
-//       else if (isExpectType(params[key], 'object') && item[key]) {
-//         if (!paramsValidator(
-//           item[key], params[key], msg ? `${msg}[${index}].${key}` : key
-//         )) return false
-//       }
-//     }
-//     return true
-//   })
-// }
-/**
- * 通过padding计算
- * @return { object } block 边框信息
- */
-var computePadding = function (block) {
-    var padding = block.padding.replace(/px/g, '').split(' ').map(function (n) { return ~~n; }) || [0], paddingTop = 0, paddingBottom = 0, paddingLeft = 0, paddingRight = 0;
-    switch (padding.length) {
-        case 1:
-            paddingTop = paddingBottom = paddingLeft = paddingRight = padding[0];
-            break;
-        case 2:
-            paddingTop = paddingBottom = padding[0];
-            paddingLeft = paddingRight = padding[1];
-            break;
-        case 3:
-            paddingTop = padding[0];
-            paddingLeft = paddingRight = padding[1];
-            paddingBottom = padding[2];
-            break;
-        default:
-            paddingTop = padding[0];
-            paddingBottom = padding[1];
-            paddingLeft = padding[2];
-            paddingRight = padding[3];
-    }
-    // 检查是否单独传入值, 并且不是0
-    var res = { paddingTop: paddingTop, paddingBottom: paddingBottom, paddingLeft: paddingLeft, paddingRight: paddingRight };
-    for (var key in res) {
-        // 是否含有这个属性, 并且是数字或字符串
-        res[key] = block.hasOwnProperty(key) && isExpectType(block[key], 'string', 'number')
-            ? ~~String(block[key]).replace(/px/g, '')
-            : res[key];
-    }
-    return [paddingTop, paddingBottom, paddingLeft, paddingRight];
-};
 
 var name = "lucky-canvas";
 var version = "1.2.6";
@@ -460,81 +402,6 @@ var Lucky = /** @class */ (function () {
 var getAngle = function (deg) {
     return Math.PI / 180 * deg;
 };
-// 绘制圆角矩形
-var drawRoundRect = function (ctx, x, y, w, h, r, color) {
-    var min = Math.min(w, h);
-    if (r > min / 2)
-        r = min / 2;
-    ctx.beginPath();
-    ctx.fillStyle = color;
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    // ctx.arcTo(x + w, y, x + w, y + r, r)
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    // ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    // ctx.arcTo(x, y + h, x, y + h - r, r)
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    // ctx.arcTo(x, y, x + r, y, r)
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-    ctx.fill();
-};
-/**
- * 创建线性渐变色
- */
-var getLinearGradient = function (ctx, x, y, w, h, background) {
-    var context = /linear-gradient\((.+)\)/.exec(background)[1]
-        .split(',') // 根据逗号分割
-        .map(function (text) { return text.trim(); }); // 去除两边空格
-    var deg = context.shift(), direction = [0, 0, 0, 0];
-    // 通过起始点和角度计算渐变终点的坐标点, 这里感谢泽宇大神提醒我使用勾股定理....
-    if (deg.includes('deg')) {
-        deg = deg.slice(0, -3) % 360;
-        // 根据4个象限定义起点坐标, 根据45度划分8个区域计算终点坐标
-        var getLenOfTanDeg = function (deg) { return Math.tan(deg / 180 * Math.PI); };
-        if (deg >= 0 && deg < 45)
-            direction = [x, y + h, x + w, y + h - w * getLenOfTanDeg(deg - 0)];
-        else if (deg >= 45 && deg < 90)
-            direction = [x, y + h, (x + w) - h * getLenOfTanDeg(deg - 45), y];
-        else if (deg >= 90 && deg < 135)
-            direction = [x + w, y + h, (x + w) - h * getLenOfTanDeg(deg - 90), y];
-        else if (deg >= 135 && deg < 180)
-            direction = [x + w, y + h, x, y + w * getLenOfTanDeg(deg - 135)];
-        else if (deg >= 180 && deg < 225)
-            direction = [x + w, y, x, y + w * getLenOfTanDeg(deg - 180)];
-        else if (deg >= 225 && deg < 270)
-            direction = [x + w, y, x + h * getLenOfTanDeg(deg - 225), y + h];
-        else if (deg >= 270 && deg < 315)
-            direction = [x, y, x + h * getLenOfTanDeg(deg - 270), y + h];
-        else if (deg >= 315 && deg < 360)
-            direction = [x, y, x + w, y + h - w * getLenOfTanDeg(deg - 315)];
-    }
-    // 创建四个简单的方向坐标
-    else if (deg.includes('top'))
-        direction = [x, y + h, x, y];
-    else if (deg.includes('bottom'))
-        direction = [x, y, x, y + h];
-    else if (deg.includes('left'))
-        direction = [x + w, y, x, y];
-    else if (deg.includes('right'))
-        direction = [x, y, x + w, y];
-    // 创建线性渐变必须使用整数坐标
-    var gradient = ctx.createLinearGradient.apply(ctx, direction.map(function (n) { return n >> 0; }));
-    // 这里后期重构, 先用any代替
-    return context.reduce(function (gradient, item, index) {
-        var info = item.split(' ');
-        if (info.length === 1)
-            gradient.addColorStop(index, info[0]);
-        else if (info.length === 2)
-            gradient.addColorStop.apply(gradient, info);
-        return gradient;
-    }, gradient);
-};
 
 /**
  * 缓动函数
@@ -640,7 +507,7 @@ var LuckyWheel = /** @class */ (function (_super) {
         var _this = this;
         // 默认配置
         this.$computed(this, '_defaultConfig', function () {
-            var config = __assign({ gutter: '0px', offsetDegree: 0, speed: 20, accelerationTime: 2500, decelerationTime: 2500 }, _this.defaultConfig);
+            var config = __assign({ gutter: '0px', offsetDegree: 0, speed: 12, accelerationTime: 2500, decelerationTime: 2500 }, _this.defaultConfig);
             return config;
         });
         // 默认样式
@@ -850,7 +717,6 @@ var LuckyWheel = /** @class */ (function (_super) {
                         // 同步加载图片
                         if (!this[imgName][cellIndex])
                             this[imgName][cellIndex] = [];
-                        console.log(imgName, cellIndex, imgIndex, this[imgName]);
                         _a = this[imgName][cellIndex];
                         _b = imgIndex;
                         return [4 /*yield*/, this.loadImg(imgInfo.src, imgInfo)];
@@ -917,7 +783,6 @@ var LuckyWheel = /** @class */ (function (_super) {
         (_a = config.beforeDraw) === null || _a === void 0 ? void 0 : _a.call(this, ctx);
         // 清空画布
         ctx.clearRect(-this.Radius, -this.Radius, this.Radius * 2, this.Radius * 2);
-        console.log('------', this.blokImg, 0, 0, this.Radius * 2, this.Radius * 2);
         ctx.restore();
         var startBlock = getAngle(-90 + this.rotateBlockDeg + _defaultConfig.offsetDegree);
         var rBlockRadius = this.Radius - 16;
@@ -927,11 +792,9 @@ var LuckyWheel = /** @class */ (function (_super) {
             // ctx.fillStyle = block.background
             // ctx.arc(0, 0, radius, 0, Math.PI * 2, false)
             // ctx.fill()
-            console.log('++++++++++++', block.img, block.img, _this.getHeight(_this.Radius) * 2, _this.getHeight(_this.Radius) * 2);
             ctx.save();
             var _a = _this.computedWidthAndHeight(block.img, block.img, _this.getHeight(_this.Radius) * 2, _this.getHeight(_this.Radius) * 2), trueWidth = _a[0], trueHeight = _a[1];
             var _b = [_this.getOffsetX(trueWidth), _this.getHeight(block.img.top, _this.Radius)], imgX = _b[0], imgY = _b[1];
-            console.log('==================', imgX, imgY, trueWidth, trueHeight);
             // ctx.rotate(this.rotateBlockDeg);
             ctx.drawImage(_this.blokImg, imgX, imgY + imgX, trueWidth, trueHeight);
             if (block.text) {
@@ -942,21 +805,17 @@ var LuckyWheel = /** @class */ (function (_super) {
                     var x = Math.cos(currMiddleDeg) * rBlockRadius;
                     var y = Math.sin(currMiddleDeg) * rBlockRadius;
                     ctx.fillText(text, x - 10, y + 4);
-                    console.log('x', x, 'y', y, '--', text);
                 });
             }
             // 绘制文字
             return radius - _this.getLength(block.padding.split(' ')[0]);
         }, this.Radius);
         var _d = this.computedWidthAndHeight(this.blocks[0].imgBackground, this.blocks[0].imgBackground, this.getHeight(this.prizeRadius) * 2, this.getHeight(this.prizeRadius) * 2), trueWidth = _d[0], trueHeight = _d[1];
-        console.log(trueWidth, trueHeight);
         // 计算起始弧度
         // ctx.fillText('原点', 0 , 0);
         var start = getAngle(-90 + this.rotateDeg + _defaultConfig.offsetDegree);
         ctx.save();
-        var _e = [this.getOffsetX(trueWidth), this.getHeight(0, this.prizeRadius)], imgX = _e[0], imgY = _e[1];
-        console.log(imgX, imgY);
-        console.log('----------------iiiiiiiii-----', this.centerBackground), trueHeight;
+        var _e = [this.getOffsetX(trueWidth), this.getHeight(0, this.prizeRadius)], imgX = _e[0];
         ctx.drawImage(this.centerBackground, imgX, imgX, trueWidth, trueHeight);
         // 绘制prizes奖品区域
         this.prizes.forEach(function (prize, prizeIndex) {
@@ -989,7 +848,6 @@ var LuckyWheel = /** @class */ (function (_super) {
                 var _b = [_this.getOffsetX(trueWidth), _this.getHeight(imgInfo.top, prizeHeight)], imgX = _b[0], imgY = _b[1];
                 var drawImg;
                 // 兼容代码
-                console.log(prizeImg);
                 if (['WEB', 'MINI-WX'].includes(_this.config.flag)) {
                     drawImg = prizeImg;
                 }
@@ -1098,6 +956,7 @@ var LuckyWheel = /** @class */ (function (_super) {
      * 对外暴露: 开始抽奖方法
      */
     LuckyWheel.prototype.play = function () {
+        var _this = this;
         // 再次拦截, 因为play是可以异步调用的
         if (this.startTime)
             return;
@@ -1107,6 +966,10 @@ var LuckyWheel = /** @class */ (function (_super) {
         this.slowDownBlockBool = false;
         this.slowDownBool = false;
         this.run();
+        // 最长时间10s
+        setTimeout(function () {
+            _this.stop(0, 0);
+        }, 10000);
     };
     /**
      * 对外暴露: 缓慢停止方法
@@ -1133,7 +996,6 @@ var LuckyWheel = /** @class */ (function (_super) {
             // 记录开始停止的时间戳
             this.endTime = Date.now();
             if (prizeFlag !== undefined && !this.slowDownBool) {
-                console.log('111');
                 // 记录开始停止的位置
                 this.stopDeg = rotateDeg;
                 var i = 0;
@@ -1179,7 +1041,6 @@ var LuckyWheel = /** @class */ (function (_super) {
         var interval = Date.now() - this.endTime;
         if (interval >= _defaultConfig.decelerationTime) {
             this.startTime = 0;
-            console.log(prizes);
             (_a = this.endCallback) === null || _a === void 0 ? void 0 : _a.call(this, __assign({}, prizes.find(function (prize, index) { return index === prizeFlag; })));
             return;
         }
@@ -1243,595 +1104,4 @@ var LuckyWheel = /** @class */ (function (_super) {
     return LuckyWheel;
 }(Lucky));
 
-var LuckyGrid = /** @class */ (function (_super) {
-    __extends(LuckyGrid, _super);
-    /**
-     * 九宫格构造器
-     * @param config 元素标识
-     * @param data 抽奖配置项
-     */
-    function LuckyGrid(config, data) {
-        if (data === void 0) { data = {}; }
-        var _this = _super.call(this, config) || this;
-        _this.rows = 3;
-        _this.cols = 3;
-        _this.blocks = [];
-        _this.prizes = [];
-        _this.defaultConfig = {};
-        _this._defaultConfig = {
-            gutter: 5,
-            speed: 20,
-            accelerationTime: 2500,
-            decelerationTime: 2500,
-        };
-        _this.defaultStyle = {};
-        _this._defaultStyle = {
-            borderRadius: 20,
-            fontColor: '#000',
-            fontSize: '18px',
-            fontStyle: 'microsoft yahei ui,microsoft yahei,simsun,sans-serif',
-            fontWeight: '400',
-            lineHeight: '',
-            background: '#fff',
-            shadow: '',
-            wordWrap: true,
-            lengthLimit: '90%',
-        };
-        _this.activeStyle = {};
-        _this._activeStyle = {
-            background: '#ffce98',
-            shadow: '',
-            fontStyle: '',
-            fontWeight: '',
-            fontSize: '',
-            lineHeight: '',
-            fontColor: '',
-        };
-        _this.cellWidth = 0; // 格子宽度
-        _this.cellHeight = 0; // 格子高度
-        _this.startTime = 0; // 开始时间戳
-        _this.endTime = 0; // 结束时间戳
-        _this.currIndex = 0; // 当前index累加
-        _this.stopIndex = 0; // 刻舟求剑
-        _this.endIndex = 0; // 停止索引
-        _this.demo = false; // 是否自动游走
-        _this.timer = 0; // 游走定时器
-        _this.animationId = 0; // 帧动画id
-        _this.FPS = 16.6; // 屏幕刷新率
-        // 所有格子
-        _this.cells = [];
-        // 图片缓存
-        _this.cellImgs = [];
-        _this.initData(data);
-        _this.initComputed();
-        _this.initWatch();
-        // 收集首次渲染的图片
-        var willUpdate = [[]];
-        _this.prizes && (willUpdate = _this.prizes.map(function (prize) { return prize.imgs; }));
-        _this.button && (willUpdate[_this.cols * _this.rows - 1] = _this.button.imgs);
-        _this.init(willUpdate);
-        return _this;
-    }
-    /**
-     * 初始化数据
-     * @param data
-     */
-    LuckyGrid.prototype.initData = function (data) {
-        this.$set(this, 'rows', Number(data.rows) || 3);
-        this.$set(this, 'cols', Number(data.cols) || 3);
-        this.$set(this, 'blocks', data.blocks || []);
-        this.$set(this, 'prizes', data.prizes || []);
-        this.$set(this, 'button', data.button);
-        this.$set(this, 'defaultConfig', data.defaultConfig || {});
-        this.$set(this, 'defaultStyle', data.defaultStyle || {});
-        this.$set(this, 'activeStyle', data.activeStyle || {});
-        this.$set(this, 'startCallback', data.start);
-        this.$set(this, 'endCallback', data.end);
-    };
-    /**
-     * 初始化属性计算
-     */
-    LuckyGrid.prototype.initComputed = function () {
-        var _this = this;
-        // 默认配置
-        this.$computed(this, '_defaultConfig', function () {
-            var config = __assign({ gutter: 5, speed: 20, accelerationTime: 2500, decelerationTime: 2500 }, _this.defaultConfig);
-            config.gutter = _this.getLength(config.gutter);
-            config.speed = config.speed / 40;
-            return config;
-        });
-        // 默认样式
-        this.$computed(this, '_defaultStyle', function () {
-            return __assign({ borderRadius: 20, fontColor: '#000', fontSize: '18px', fontStyle: 'microsoft yahei ui,microsoft yahei,simsun,sans-serif', fontWeight: '400', background: '#fff', shadow: '', wordWrap: true, lengthLimit: '90%' }, _this.defaultStyle);
-        });
-        // 中奖样式
-        this.$computed(this, '_activeStyle', function () {
-            return __assign({ background: '#ffce98', shadow: '' }, _this.activeStyle);
-        });
-    };
-    /**
-     * 初始化观察者
-     */
-    LuckyGrid.prototype.initWatch = function () {
-        var _this = this;
-        // 监听奖品数据的变化
-        this.$watch('prizes', function (newData, oldData) {
-            var willUpdate = [];
-            // 首次渲染时oldData为undefined
-            if (!oldData)
-                willUpdate = newData.map(function (prize) { return prize.imgs; });
-            // 此时新值一定存在
-            else if (newData)
-                newData.forEach(function (newPrize, prizeIndex) {
-                    var prizeImgs = [];
-                    var oldPrize = oldData[prizeIndex];
-                    // 如果旧奖品不存在
-                    if (!oldPrize)
-                        prizeImgs = newPrize.imgs || [];
-                    // 新奖品有图片才能进行对比
-                    else if (newPrize.imgs)
-                        newPrize.imgs.forEach(function (newImg, imgIndex) {
-                            if (!oldPrize.imgs)
-                                return prizeImgs[imgIndex] = newImg;
-                            var oldImg = oldPrize.imgs[imgIndex];
-                            // 如果旧值不存在
-                            if (!oldImg)
-                                prizeImgs[imgIndex] = newImg;
-                            // 如果缓存中没有图片
-                            else if (!_this.cellImgs[prizeIndex][imgIndex])
-                                prizeImgs[imgIndex] = newImg;
-                            // 如果新值和旧值的src不相等
-                            else if (newImg.src !== oldImg.src)
-                                prizeImgs[imgIndex] = newImg;
-                        });
-                    willUpdate[prizeIndex] = prizeImgs;
-                });
-            return _this.init(willUpdate);
-        });
-        // 监听按钮数据的变化
-        this.$watch('button', function (newData, oldData) {
-            var willUpdate = [], btnIndex = _this.cols * _this.rows - 1;
-            // 首次渲染时, oldData不存在
-            if (!oldData || !oldData.imgs)
-                willUpdate[btnIndex] = newData.imgs;
-            // 如果新值存在img, 才能进行对比
-            else if (newData.imgs) {
-                var btnImg_1 = [];
-                newData.imgs.forEach(function (newImg, imgIndex) {
-                    if (!oldData.imgs)
-                        return btnImg_1[imgIndex] = newImg;
-                    var oldImg = oldData.imgs[imgIndex];
-                    // 如果旧值不存在
-                    if (!oldImg)
-                        btnImg_1[imgIndex] = newImg;
-                    // 如果缓存中没有图片
-                    else if (!_this.cellImgs[btnIndex][imgIndex])
-                        btnImg_1[imgIndex] = newImg;
-                    // 如果新值和旧值的src不相等
-                    else if (newImg.src !== oldImg.src)
-                        btnImg_1[imgIndex] = newImg;
-                });
-                willUpdate[btnIndex] = btnImg_1;
-            }
-            return _this.init(willUpdate);
-        });
-    };
-    /**
-     * 初始化 canvas 抽奖
-     * @param willUpdateImgs 需要更新的图片
-     */
-    LuckyGrid.prototype.init = function (willUpdateImgs) {
-        var _this = this;
-        var _a, _b;
-        var _c = this, config = _c.config, ctx = _c.ctx, button = _c.button;
-        this.setHTMLFontSize();
-        this.setDpr();
-        this.zoomCanvas();
-        // 初始化前回调函数
-        (_a = config.beforeInit) === null || _a === void 0 ? void 0 : _a.call(this);
-        var endCallBack = function () {
-            // 开始首次渲染
-            _this.draw();
-            // 中奖标识开始游走
-            _this.demo && _this.walk();
-            // 点击按钮开始, 这里不能使用 addEventListener
-            if (button && config.canvasElement)
-                config.canvasElement.onclick = function (e) {
-                    var _a;
-                    var _b = _this.getGeometricProperty([
-                        button.x,
-                        button.y,
-                        button.col || 1,
-                        button.row || 1
-                    ]), x = _b[0], y = _b[1], width = _b[2], height = _b[3];
-                    ctx.beginPath();
-                    ctx.rect(x, y, width, height);
-                    if (!ctx.isPointInPath(e.offsetX, e.offsetY))
-                        return;
-                    if (_this.startTime)
-                        return;
-                    (_a = _this.startCallback) === null || _a === void 0 ? void 0 : _a.call(_this, e);
-                };
-        };
-        // 同步加载图片
-        var num = 0, sum = 0;
-        if (isExpectType(willUpdateImgs, 'array')) {
-            this.draw(); // 先画一次防止闪烁, 因为加载图片是异步的
-            willUpdateImgs.forEach(function (imgs, cellIndex) {
-                if (!imgs)
-                    return false;
-                imgs.forEach(function (imgInfo, imgIndex) {
-                    sum++;
-                    _this.loadAndCacheImg(cellIndex, imgIndex, function () {
-                        num++;
-                        if (sum === num)
-                            endCallBack.call(_this);
-                    });
-                });
-            });
-        }
-        if (!sum)
-            endCallBack.call(this);
-        // 初始化后回调函数
-        (_b = config.afterInit) === null || _b === void 0 ? void 0 : _b.call(this);
-    };
-    /**
-     * 单独加载某一张图片并计算其实际渲染宽高
-     * @param { number } prizeIndex 奖品索引
-     * @param { number } imgIndex 奖品图片索引
-     * @param { Function } callBack 图片加载完毕回调
-     */
-    LuckyGrid.prototype.loadAndCacheImg = function (prizeIndex, imgIndex, callBack) {
-        return __awaiter(this, void 0, void 0, function () {
-            var prize, imgInfo, _a, _b, activeImg;
-            var _c;
-            return __generator(this, function (_d) {
-                switch (_d.label) {
-                    case 0:
-                        prize = this.cells[prizeIndex];
-                        if (!prize || !prize.imgs)
-                            return [2 /*return*/];
-                        imgInfo = prize.imgs[imgIndex];
-                        if (!this.cellImgs[prizeIndex])
-                            this.cellImgs[prizeIndex] = [];
-                        // 加载 defaultImg 默认图片
-                        _a = this.cellImgs[prizeIndex];
-                        _b = imgIndex;
-                        _c = {};
-                        return [4 /*yield*/, this.loadImg(imgInfo.src, imgInfo)];
-                    case 1:
-                        // 加载 defaultImg 默认图片
-                        _a[_b] = (_c.defaultImg = (_d.sent()),
-                            _c);
-                        if (!imgInfo.hasOwnProperty('activeSrc')) return [3 /*break*/, 3];
-                        return [4 /*yield*/, this.loadImg(imgInfo.activeSrc, imgInfo)];
-                    case 2:
-                        activeImg = _d.sent();
-                        this.cellImgs[prizeIndex][imgIndex].activeImg = activeImg;
-                        _d.label = 3;
-                    case 3:
-                        callBack.call(this);
-                        return [2 /*return*/];
-                }
-            });
-        });
-    };
-    /**
-     * 计算图片的渲染宽高
-     * @param imgObj 图片标签元素
-     * @param imgInfo 图片信息
-     * @param cell 格子信息
-     * @return [渲染宽度, 渲染高度]
-     */
-    LuckyGrid.prototype.computedWidthAndHeight = function (imgObj, imgInfo, cell) {
-        // 根据配置的样式计算图片的真实宽高
-        if (!imgInfo.width && !imgInfo.height) {
-            // 如果没有配置宽高, 则使用图片本身的宽高
-            return [imgObj.width, imgObj.height];
-        }
-        else if (imgInfo.width && !imgInfo.height) {
-            // 如果只填写了宽度, 没填写高度
-            var trueWidth = this.getWidth(imgInfo.width, cell.col);
-            // 那高度就随着宽度进行等比缩放
-            return [trueWidth, imgObj.height * (trueWidth / imgObj.width)];
-        }
-        else if (!imgInfo.width && imgInfo.height) {
-            // 如果只填写了宽度, 没填写高度
-            var trueHeight = this.getHeight(imgInfo.height, cell.row);
-            // 那宽度就随着高度进行等比缩放
-            return [imgObj.width * (trueHeight / imgObj.height), trueHeight];
-        }
-        // 如果宽度和高度都填写了, 就分别计算
-        return [
-            this.getWidth(imgInfo.width, cell.col),
-            this.getHeight(imgInfo.height, cell.row)
-        ];
-    };
-    /**
-     * 绘制九宫格抽奖
-     */
-    LuckyGrid.prototype.draw = function () {
-        var _this = this;
-        var _a, _b;
-        var _c = this, config = _c.config, ctx = _c.ctx, _defaultConfig = _c._defaultConfig, _defaultStyle = _c._defaultStyle, _activeStyle = _c._activeStyle;
-        // 触发绘制前回调
-        (_a = config.beforeDraw) === null || _a === void 0 ? void 0 : _a.call(this, ctx);
-        // 清空画布
-        ctx.clearRect(0, 0, config.width, config.height);
-        // 合并奖品和按钮
-        this.cells = __spreadArrays(this.prizes);
-        if (this.button)
-            this.cells[this.cols * this.rows - 1] = this.button;
-        this.cells.forEach(function (cell) {
-            cell.col = cell.col || 1;
-            cell.row = cell.row || 1;
-        });
-        // 计算获取奖品区域的几何信息
-        this.prizeArea = this.blocks.reduce(function (_a, block) {
-            var x = _a.x, y = _a.y, w = _a.w, h = _a.h;
-            var _b = computePadding(block).map(function (n) { return ~~n; }), paddingTop = _b[0], paddingBottom = _b[1], paddingLeft = _b[2], paddingRight = _b[3];
-            var r = block.borderRadius ? _this.getLength(block.borderRadius) : 0;
-            // 绘制边框
-            drawRoundRect(ctx, x, y, w, h, r, _this.handleBackground(x, y, w, h, block.background));
-            return {
-                x: x + paddingLeft,
-                y: y + paddingTop,
-                w: w - paddingLeft - paddingRight,
-                h: h - paddingTop - paddingBottom
-            };
-        }, { x: 0, y: 0, w: config.width, h: config.height });
-        // 计算单一奖品格子的宽度和高度
-        this.cellWidth = (this.prizeArea.w - _defaultConfig.gutter * (this.cols - 1)) / this.cols;
-        this.cellHeight = (this.prizeArea.h - _defaultConfig.gutter * (this.rows - 1)) / this.rows;
-        // 绘制所有格子
-        this.cells.forEach(function (prize, cellIndex) {
-            var _a = _this.getGeometricProperty([prize.x, prize.y, prize.col, prize.row]), x = _a[0], y = _a[1], width = _a[2], height = _a[3];
-            var isActive = cellIndex === _this.currIndex % _this.prizes.length >> 0;
-            // 处理阴影 (暂时先用any, 这里后续要优化)
-            var shadow = (isActive ? _activeStyle.shadow : (prize.shadow || _defaultStyle.shadow))
-                .replace(/px/g, '') // 清空px字符串
-                .split(',')[0].split(' ') // 防止有人声明多个阴影, 截取第一个阴影
-                .map(function (n, i) { return i < 3 ? Number(n) : n; }); // 把数组的前三个值*像素比
-            // 绘制阴影
-            if (shadow.length === 4) {
-                ctx.shadowColor = shadow[3];
-                ctx.shadowOffsetX = shadow[0] * config.dpr;
-                ctx.shadowOffsetY = shadow[1] * config.dpr;
-                ctx.shadowBlur = shadow[2];
-                // 修正(格子+阴影)的位置, 这里使用逗号运算符
-                shadow[0] > 0 ? (width -= shadow[0]) : (width += shadow[0], x -= shadow[0]);
-                shadow[1] > 0 ? (height -= shadow[1]) : (height += shadow[1], y -= shadow[1]);
-            }
-            drawRoundRect(ctx, x, y, width, height, _this.getLength(prize.borderRadius ? prize.borderRadius : _defaultStyle.borderRadius), _this.handleBackground(x, y, width, height, prize.background, isActive));
-            // 清空阴影
-            ctx.shadowColor = 'rgba(0, 0, 0, 0)';
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-            ctx.shadowBlur = 0;
-            // 绘制图片
-            prize.imgs && prize.imgs.forEach(function (imgInfo, imgIndex) {
-                if (!_this.cellImgs[cellIndex])
-                    return false;
-                var cellImg = _this.cellImgs[cellIndex][imgIndex];
-                if (!cellImg)
-                    return false;
-                var renderImg = (isActive && cellImg.activeImg) || cellImg.defaultImg;
-                var _a = _this.computedWidthAndHeight(renderImg, imgInfo, prize), trueWidth = _a[0], trueHeight = _a[1];
-                var _b = [x + _this.getOffsetX(trueWidth, prize.col), y + _this.getHeight(imgInfo.top, prize.row)], imgX = _b[0], imgY = _b[1];
-                var drawImg;
-                if (['WEB', 'MINI-WX'].includes(_this.config.flag)) {
-                    // 浏览器中直接绘制标签即可
-                    drawImg = renderImg;
-                }
-                else if (['UNI-H5', 'UNI-MINI-WX'].includes(_this.config.flag)) {
-                    // 小程序中直接绘制一个路径
-                    drawImg = renderImg.path;
-                }
-                ctx.drawImage(drawImg, imgX, imgY, trueWidth, trueHeight);
-            });
-            // 绘制文字
-            prize.fonts && prize.fonts.forEach(function (font) {
-                // 字体样式
-                var style = isActive && _activeStyle.fontStyle
-                    ? _activeStyle.fontStyle
-                    : (font.fontStyle || _defaultStyle.fontStyle);
-                // 字体加粗
-                var fontWeight = isActive && _activeStyle.fontWeight
-                    ? _activeStyle.fontWeight
-                    : (font.fontWeight || _defaultStyle.fontWeight);
-                // 字体大小
-                var size = isActive && _activeStyle.fontSize
-                    ? _this.getLength(_activeStyle.fontSize)
-                    : _this.getLength(font.fontSize || _defaultStyle.fontSize);
-                // 字体行高
-                var lineHeight = isActive && _activeStyle.lineHeight
-                    ? _activeStyle.lineHeight
-                    : font.lineHeight || _defaultStyle.lineHeight || font.fontSize || _defaultStyle.fontSize;
-                ctx.font = fontWeight + " " + size + "px " + style;
-                ctx.fillStyle = (isActive && _activeStyle.fontColor) ? _activeStyle.fontColor : (font.fontColor || _defaultStyle.fontColor);
-                var lines = [], text = String(font.text);
-                // 计算文字换行
-                if (font.hasOwnProperty('wordWrap') ? font.wordWrap : _defaultStyle.wordWrap) {
-                    text = removeEnter(text);
-                    var str = '';
-                    for (var i = 0; i < text.length; i++) {
-                        str += text[i];
-                        var currWidth = ctx.measureText(str).width;
-                        var maxWidth = _this.getWidth(font.lengthLimit || _defaultStyle.lengthLimit, prize.col);
-                        if (currWidth > maxWidth) {
-                            lines.push(str.slice(0, -1));
-                            str = text[i];
-                        }
-                    }
-                    if (str)
-                        lines.push(str);
-                    if (!lines.length)
-                        lines.push(text);
-                }
-                else {
-                    lines = text.split('\n');
-                }
-                lines.forEach(function (line, lineIndex) {
-                    ctx.fillText(line, x + _this.getOffsetX(ctx.measureText(line).width, prize.col), y + _this.getHeight(font.top, prize.row) + (lineIndex + 1) * _this.getLength(lineHeight));
-                });
-            });
-        });
-        // 触发绘制后回调
-        (_b = config.afterDraw) === null || _b === void 0 ? void 0 : _b.call(this, ctx);
-    };
-    /**
-     * 处理背景色
-     * @param x
-     * @param y
-     * @param width
-     * @param height
-     * @param background
-     * @param isActive
-     */
-    LuckyGrid.prototype.handleBackground = function (x, y, width, height, background, isActive) {
-        if (isActive === void 0) { isActive = false; }
-        var _a = this, ctx = _a.ctx, _defaultStyle = _a._defaultStyle, _activeStyle = _a._activeStyle;
-        background = isActive ? _activeStyle.background : (background || _defaultStyle.background);
-        // 处理线性渐变
-        if (background.includes('linear-gradient')) {
-            background = getLinearGradient(ctx, x, y, width, height, background);
-        }
-        return background;
-    };
-    /**
-     * 对外暴露: 开始抽奖方法
-     */
-    LuckyGrid.prototype.play = function () {
-        var clearInterval = this.clearInterval;
-        if (this.startTime)
-            return;
-        clearInterval(this.timer);
-        this.startTime = Date.now();
-        this.prizeFlag = undefined;
-        this.run();
-    };
-    /**
-     * 对外暴露: 缓慢停止方法
-     * @param index 中奖索引
-     */
-    LuckyGrid.prototype.stop = function (index) {
-        this.prizeFlag = index % this.prizes.length;
-    };
-    /**
-     * 实际开始执行方法
-     * @param num 记录帧动画执行多少次
-     */
-    LuckyGrid.prototype.run = function (num) {
-        if (num === void 0) { num = 0; }
-        var _a = this, rAF = _a.rAF, currIndex = _a.currIndex, prizes = _a.prizes, prizeFlag = _a.prizeFlag, startTime = _a.startTime, _defaultConfig = _a._defaultConfig;
-        var interval = Date.now() - startTime;
-        // 先完全旋转, 再停止
-        if (interval >= _defaultConfig.accelerationTime && prizeFlag !== undefined) {
-            // 记录帧率
-            this.FPS = interval / num;
-            // 记录开始停止的时间戳
-            this.endTime = Date.now();
-            // 记录开始停止的索引
-            this.stopIndex = currIndex;
-            // 测算最终停止的索引
-            var i = 0;
-            while (++i) {
-                var endIndex = prizes.length * i + prizeFlag - (currIndex >> 0);
-                var currSpeed = quad.easeOut(this.FPS, this.stopIndex, endIndex, _defaultConfig.decelerationTime) - this.stopIndex;
-                if (currSpeed > _defaultConfig.speed) {
-                    this.endIndex = endIndex;
-                    break;
-                }
-            }
-            return this.slowDown();
-        }
-        this.currIndex = (currIndex + quad.easeIn(interval, 0.1, _defaultConfig.speed, _defaultConfig.accelerationTime)) % prizes.length;
-        this.draw();
-        rAF(this.run.bind(this, num + 1));
-    };
-    /**
-     * 缓慢停止的方法
-     */
-    LuckyGrid.prototype.slowDown = function () {
-        var _a;
-        var _b = this, rAF = _b.rAF, prizes = _b.prizes, prizeFlag = _b.prizeFlag, stopIndex = _b.stopIndex, endIndex = _b.endIndex, _defaultConfig = _b._defaultConfig;
-        var interval = Date.now() - this.endTime;
-        if (interval > _defaultConfig.decelerationTime) {
-            this.startTime = 0;
-            (_a = this.endCallback) === null || _a === void 0 ? void 0 : _a.call(this, __assign({}, prizes.find(function (prize, index) { return index === prizeFlag; })));
-            return;
-        }
-        this.currIndex = quad.easeOut(interval, stopIndex, endIndex, _defaultConfig.decelerationTime) % prizes.length;
-        this.draw();
-        rAF(this.slowDown.bind(this));
-    };
-    /**
-     * 开启中奖标识自动游走
-     */
-    LuckyGrid.prototype.walk = function () {
-        var _this = this;
-        var _a = this, setInterval = _a.setInterval, clearInterval = _a.clearInterval;
-        clearInterval(this.timer);
-        this.timer = setInterval(function () {
-            _this.currIndex += 1;
-            _this.draw();
-        }, 1300);
-    };
-    /**
-     * 计算奖品格子的几何属性
-     * @param { array } [...矩阵坐标, col, row]
-     * @return { array } [...真实坐标, width, height]
-     */
-    LuckyGrid.prototype.getGeometricProperty = function (_a) {
-        var x = _a[0], y = _a[1], col = _a[2], row = _a[3];
-        var _b = this, cellWidth = _b.cellWidth, cellHeight = _b.cellHeight;
-        var gutter = this._defaultConfig.gutter;
-        var res = [
-            this.prizeArea.x + (cellWidth + gutter) * x,
-            this.prizeArea.y + (cellHeight + gutter) * y
-        ];
-        col && row && res.push(cellWidth * col + gutter * (col - 1), cellHeight * row + gutter * (row - 1));
-        return res;
-    };
-    /**
-     * 转换并获取宽度
-     * @param width 将要转换的宽度
-     * @param col 横向合并的格子
-     * @return 返回相对宽度
-     */
-    LuckyGrid.prototype.getWidth = function (width, col) {
-        if (col === void 0) { col = 1; }
-        if (isExpectType(width, 'number'))
-            return width;
-        if (isExpectType(width, 'string'))
-            return this.changeUnits(width, this.cellWidth * col + this._defaultConfig.gutter * (col - 1));
-        return 0;
-    };
-    /**
-     * 转换并获取高度
-     * @param height 将要转换的高度
-     * @param row 纵向合并的格子
-     * @return 返回相对高度
-     */
-    LuckyGrid.prototype.getHeight = function (height, row) {
-        if (row === void 0) { row = 1; }
-        if (isExpectType(height, 'number'))
-            return height;
-        if (isExpectType(height, 'string'))
-            return this.changeUnits(height, this.cellHeight * row + this._defaultConfig.gutter * (row - 1));
-        return 0;
-    };
-    /**
-     * 获取相对(居中)X坐标
-     * @param width
-     * @param col
-     */
-    LuckyGrid.prototype.getOffsetX = function (width, col) {
-        if (col === void 0) { col = 1; }
-        return (this.cellWidth * col + this._defaultConfig.gutter * (col - 1) - width) / 2;
-    };
-    return LuckyGrid;
-}(Lucky));
-
-exports.LuckyGrid = LuckyGrid;
 exports.LuckyWheel = LuckyWheel;

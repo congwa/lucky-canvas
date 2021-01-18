@@ -105,7 +105,7 @@ export default class LuckyWheel extends Lucky {
       const config = {
         gutter: '0px',
         offsetDegree: 0,
-        speed: 20,
+        speed: 12,
         accelerationTime: 2500,
         decelerationTime: 2500,
         ...this.defaultConfig
@@ -276,7 +276,7 @@ export default class LuckyWheel extends Lucky {
     if (!imgInfo) return
     // 同步加载图片
     if (!this[imgName][cellIndex]) this[imgName][cellIndex] = []
-    console.log(imgName, cellIndex, imgIndex, this[imgName]);
+    
     this[imgName][cellIndex][imgIndex] = await this.loadImg(imgInfo.src, imgInfo)
     callBack.call(this)
   }
@@ -342,7 +342,7 @@ export default class LuckyWheel extends Lucky {
     // 清空画布
     ctx.clearRect(-this.Radius, -this.Radius, this.Radius * 2, this.Radius * 2)
 
-    console.log('------', this.blokImg, 0,0, this.Radius * 2, this.Radius * 2);
+    
     ctx.restore()
     
 
@@ -354,13 +354,13 @@ export default class LuckyWheel extends Lucky {
       // ctx.fillStyle = block.background
       // ctx.arc(0, 0, radius, 0, Math.PI * 2, false)
       // ctx.fill()
-      console.log('++++++++++++', block.img,   block.img, this.getHeight(this.Radius) * 2, this.getHeight(this.Radius) * 2);
+      
       ctx.save();
       const [trueWidth, trueHeight] = this.computedWidthAndHeight(
         block.img,   block.img, this.getHeight(this.Radius) * 2, this.getHeight(this.Radius) * 2
       )
       const [imgX, imgY] = [this.getOffsetX(trueWidth), this.getHeight(  block.img.top, this.Radius)]
-      console.log('==================',imgX , imgY,trueWidth, trueHeight);
+      
       // ctx.rotate(this.rotateBlockDeg);
       ctx.drawImage((this.blokImg as CanvasImageSource), imgX , imgY+ imgX,trueWidth, trueHeight )
       
@@ -379,7 +379,7 @@ export default class LuckyWheel extends Lucky {
           let x = Math.cos(currMiddleDeg) * rBlockRadius
           let y = Math.sin(currMiddleDeg) * rBlockRadius
           ctx.fillText(text, x -10, y + 4)
-          console.log('x',x, 'y', y, '--', text);
+          
         })
       }
       // 绘制文字
@@ -389,7 +389,7 @@ export default class LuckyWheel extends Lucky {
     const [trueWidth, trueHeight] = this.computedWidthAndHeight(
       this.blocks[0].imgBackground,   this.blocks[0].imgBackground, this.getHeight(this.prizeRadius) * 2, this.getHeight(this.prizeRadius) * 2
     )
-    console.log(trueWidth, trueHeight);
+    
     
     // 计算起始弧度
     // ctx.fillText('原点', 0 , 0);
@@ -399,8 +399,8 @@ export default class LuckyWheel extends Lucky {
     
     ctx.save()
     const [imgX, imgY] = [this.getOffsetX(trueWidth), this.getHeight(  0, this.prizeRadius)]
-    console.log(imgX, imgY);
-    console.log('----------------iiiiiiiii-----',this.centerBackground as CanvasImageSource), imgX , imgY-imgX,trueWidth, trueHeight);
+    
+    
     ctx.drawImage((this.centerBackground as CanvasImageSource), imgX , imgX,trueWidth, trueHeight )
     
     // 绘制prizes奖品区域
@@ -435,7 +435,7 @@ export default class LuckyWheel extends Lucky {
         const [imgX, imgY] = [this.getOffsetX(trueWidth), this.getHeight(imgInfo.top, prizeHeight)]
         let drawImg
         // 兼容代码
-        console.log(prizeImg);
+        
         if (['WEB', 'MINI-WX'].includes(this.config.flag)) {
           drawImg = prizeImg
         } else if (['UNI-H5', 'UNI-MINI-WX'].includes(this.config.flag)) {
@@ -548,6 +548,10 @@ export default class LuckyWheel extends Lucky {
     this.slowDownBlockBool = false;
     this.slowDownBool = false;
     this.run()
+    // 最长时间10s
+    setTimeout(() => {
+      this.stop(0, 0);
+    },10000)
   }
 
   /**
@@ -577,7 +581,7 @@ export default class LuckyWheel extends Lucky {
       
       
       if(prizeFlag !== undefined && !this.slowDownBool) {
-        console.log('111');
+        
         // 记录开始停止的位置
         this.stopDeg = rotateDeg
 
@@ -625,7 +629,7 @@ export default class LuckyWheel extends Lucky {
     let interval = Date.now() - this.endTime
     if (interval >= _defaultConfig.decelerationTime) {
       this.startTime = 0
-      console.log(prizes);
+      
       this.endCallback?.({...prizes.find((prize, index) => index === prizeFlag)})
       return
     }
