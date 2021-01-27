@@ -549,9 +549,9 @@ export default class LuckyWheel extends Lucky {
     this.slowDownBool = false;
     this.run()
     // 最长时间10s
-    setTimeout(() => {
-      this.stop(0, 0);
-    },10000)
+    // setTimeout(() => {
+    //   this.stop(0, 0);
+    // },10000)
   }
 
   /**
