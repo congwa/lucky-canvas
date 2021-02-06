@@ -194,7 +194,7 @@ export default class LuckyWheel extends Lucky {
    * 初始化 canvas 抽奖
    * @param { Array<ImgType[]> } willUpdateImgs 需要更新的图片
    */
-  public async init (willUpdateImgs: Array<ImgType[] | undefined>): void {
+  public async init (willUpdateImgs: Array<ImgType[] | undefined>) {
     const { config, ctx } = this
     this.setDpr()
     this.setHTMLFontSize()

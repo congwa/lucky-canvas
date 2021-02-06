@@ -958,7 +958,6 @@
          * 对外暴露: 开始抽奖方法
          */
         LuckyWheel.prototype.play = function () {
-            var _this = this;
             // 再次拦截, 因为play是可以异步调用的
             if (this.startTime)
                 return;
@@ -969,9 +968,9 @@
             this.slowDownBool = false;
             this.run();
             // 最长时间10s
-            setTimeout(function () {
-                _this.stop(0, 0);
-            }, 10000);
+            // setTimeout(() => {
+            //   this.stop(0, 0);
+            // },10000)
         };
         /**
          * 对外暴露: 缓慢停止方法
